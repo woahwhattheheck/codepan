@@ -120,6 +120,21 @@ export default {
         }
       },
       immediate: true
+    },
+    '$route.query': {
+      handler(query) {
+        const widths = {}
+        for (const pan of ['html', 'css', 'js', 'console', 'output']) {
+          const raw = Array.isArray(query[pan]) ? query[pan][0] : query[pan]
+          const value = Number(raw)
+          if (raw != null && raw !== '' && Number.isFinite(value) && value > 0) {
+            widths[pan] = Math.min(100, value)
+          }
+        }
+        this.setPanWidths(widths)
+      },
+      deep: true,
+      immediate: true
     }
   },
   mounted() {
@@ -154,7 +169,7 @@ export default {
     })
   },
   methods: {
-    ...mapActions(['setBoilerplate', 'setGist', 'showPans', 'setAutoRun']),
+    ...mapActions(['setBoilerplate', 'setGist', 'showPans', 'setAutoRun', 'setPanWidths']),
     isVisible(pan) {
       return this.visiblePans.indexOf(pan) !== -1
     },

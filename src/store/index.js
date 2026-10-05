@@ -68,6 +68,7 @@ const store = new Vuex.Store({
     ...emptyPans(),
     logs: [],
     visiblePans: ['html', 'js', 'output'],
+    panWidths: {},
     activePan: 'js',
     autoRun: false,
     githubToken: localStorage.getItem('codepan:gh-token') || '',
@@ -102,6 +103,9 @@ const store = new Vuex.Store({
     },
     SHOW_PANS(state, pans) {
       state.visiblePans = sortPans(pans)
+    },
+    PAN_WIDTHS(state, widths) {
+      state.panWidths = widths
     },
     ACTIVE_PAN(state, pan) {
       state.activePan = pan
@@ -149,6 +153,9 @@ const store = new Vuex.Store({
     },
     showPans({ commit }, pans) {
       commit('SHOW_PANS', pans)
+    },
+    setPanWidths({ commit }, widths) {
+      commit('PAN_WIDTHS', widths)
     },
     async updateTransformer({ commit }, { type, transformer }) {
       if (
