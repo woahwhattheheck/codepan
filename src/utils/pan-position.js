@@ -6,11 +6,17 @@ export default (pans, pan, widths = {}) => {
     .filter(p => widths[p] != null)
     .reduce((sum, p) => sum + widths[p], 0)
   const unspecified = visibleOrdered.filter(p => widths[p] == null)
+  const specifiedScale =
+    specifiedTotal > 0 && (unspecified.length === 0 || specifiedTotal > 100)
+      ? 100 / specifiedTotal
+      : 1
+  const scaledSpecifiedTotal = specifiedTotal * specifiedScale
   const evenShare =
     unspecified.length > 0
-      ? Math.max(0, (100 - specifiedTotal) / unspecified.length)
+      ? Math.max(0, (100 - scaledSpecifiedTotal) / unspecified.length)
       : 0
-  const widthOf = p => (widths[p] != null ? widths[p] : evenShare)
+  const widthOf = p =>
+    widths[p] != null ? widths[p] * specifiedScale : evenShare
 
   const idx = ORDERED_PANS.indexOf(pan)
   const sumRange = list =>
