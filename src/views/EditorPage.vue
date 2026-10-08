@@ -55,6 +55,20 @@ import ConsolePan from '@/components/ConsolePan.vue'
 import CSSPan from '@/components/CSSPan.vue'
 import CompiledCodeDialog from '@/components/CompiledCodeDialog.vue'
 
+const WIDTH_PANS = ['html', 'css', 'js', 'console', 'output']
+
+function panWidthsFromQuery(query) {
+  const widths = {}
+  for (const pan of WIDTH_PANS) {
+    const raw = Array.isArray(query[pan]) ? query[pan][0] : query[pan]
+    const value = Number(raw)
+    if (raw != null && raw !== '' && Number.isFinite(value) && value > 0) {
+      widths[pan] = Math.min(100, value)
+    }
+  }
+  return widths
+}
+
 async function handleRouteChange(to, vm) {
   let boilerplate
   let gist
@@ -80,6 +94,9 @@ async function handleRouteChange(to, vm) {
     Event.$emit('run')
   }
 
+  // A gist or boilerplate may replace the visible panes *after* the immediate
+  // route watcher. Re-apply explicitly sized panels once that load completes.
+  vm.reconcileWidthVisibility(to.query)
   await vm.setAutoRun(true)
 
   progress.done()
@@ -94,7 +111,8 @@ export default {
         css: false,
         html: false
       },
-      isReadOnly: 'readonly' in this.$route.query
+      isReadOnly: 'readonly' in this.$route.query,
+      widthImpliedPans: []
     }
   },
   computed: {
@@ -123,14 +141,8 @@ export default {
     },
     '$route.query': {
       handler(query) {
-        const widths = {}
-        for (const pan of ['html', 'css', 'js', 'console', 'output']) {
-          const raw = Array.isArray(query[pan]) ? query[pan][0] : query[pan]
-          const value = Number(raw)
-          if (raw != null && raw !== '' && Number.isFinite(value) && value > 0) {
-            widths[pan] = Math.min(100, value)
-          }
-        }
+        const widths = panWidthsFromQuery(query)
+        this.reconcileWidthVisibility(query, widths)
         this.setPanWidths(widths)
       },
       deep: true,
@@ -170,6 +182,25 @@ export default {
   },
   methods: {
     ...mapActions(['setBoilerplate', 'setGist', 'showPans', 'setAutoRun', 'setPanWidths']),
+    reconcileWidthVisibility(query, widths = panWidthsFromQuery(query)) {
+      // An explicit ?show= is authoritative: don't silently open hidden panes.
+      if (query.show !== undefined) {
+        this.widthImpliedPans = []
+        return
+      }
+
+      // Widths are meaningful only for visible panes. A standalone
+      // ?console=20 should expose the console beside the existing panels,
+      // not silently set the width of an invisible component.
+      const basePans = this.visiblePans.filter(p => !this.widthImpliedPans.includes(p))
+      const impliedPans = Object.keys(widths).filter(p => !basePans.includes(p))
+      const nextPans = [...basePans, ...impliedPans]
+      this.widthImpliedPans = impliedPans
+      if (nextPans.length !== this.visiblePans.length ||
+          nextPans.some(p => !this.visiblePans.includes(p))) {
+        this.showPans(nextPans)
+      }
+    },
     isVisible(pan) {
       return this.visiblePans.indexOf(pan) !== -1
     },
