@@ -69,6 +69,18 @@ function panWidthsFromQuery(query) {
   return widths
 }
 
+// Vue Router may decode a repeated ?show= key into an array. Filter unknown
+// names rather than letting malformed input reach showPans or the resizer.
+function visiblePansFromQuery(value) {
+  const parts = (Array.isArray(value) ? value : [value])
+    .filter(item => typeof item === 'string')
+    .join(',')
+    .split(',')
+    .map(item => item.trim())
+    .filter(item => WIDTH_PANS.includes(item))
+  return parts.length ? Array.from(new Set(parts)) : ['js', 'html', 'output']
+}
+
 async function handleRouteChange(to, vm) {
   let boilerplate
   let gist
@@ -131,10 +143,10 @@ export default {
   watch: {
     '$route.query.show': {
       handler(next, prev) {
-        if (!next && prev) {
-          this.showPans(['js', 'html', 'output'])
-        } else if (next !== prev) {
-          this.showPans(next.split(','))
+        if (next === undefined) {
+          if (prev !== undefined) this.showPans(['js', 'html', 'output'])
+        } else {
+          this.showPans(visiblePansFromQuery(next))
         }
       },
       immediate: true
@@ -183,9 +195,15 @@ export default {
   methods: {
     ...mapActions(['setBoilerplate', 'setGist', 'showPans', 'setAutoRun', 'setPanWidths']),
     reconcileWidthVisibility(query, widths = panWidthsFromQuery(query)) {
-      // An explicit ?show= is authoritative: don't silently open hidden panes.
+      // Explicit ?show= takes precedence over width-implied panels, including
+      // after an async gist/boilerplate load resets the visible pane list.
       if (query.show !== undefined) {
         this.widthImpliedPans = []
+        const requested = visiblePansFromQuery(query.show)
+        if (requested.length !== this.visiblePans.length ||
+            requested.some(p => !this.visiblePans.includes(p))) {
+          this.showPans(requested)
+        }
         return
       }
 
